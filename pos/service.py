@@ -8,7 +8,7 @@ from .domain import CartLine, RuleError, allocate, full_refund, latest_valid, pr
 from .offers import evaluate
 from .configuration import load_configuration
 from .ports import Commerce, StoreTool, Terminal, UpstreamError
-from .persistence import Repository
+from .persistence import Repository, fingerprint
 
 IST = ZoneInfo('Asia/Kolkata')
 
@@ -68,9 +68,11 @@ class POS:
         discount, allocations, explanations = evaluate(lines, customer, offers, on, staff, body.get('manual_discount'))
         priced = price_cart(lines, discount, allocations, rates, on)
         require(priced['totals']['total_paise'] > 0, 'zero_payment', 'Zero-charge remakes are outside v1')
-        return dict(**priced, offers=explanations, customer=asdict(customer), store=asdict(store),
-                    staff_id=staff.id, channel=body.get('channel','walk_in'), method=body.get('method','upi'),
-                    manual_discount=body.get('manual_discount'), warnings=rx.warnings(), billing_date=on.isoformat())
+        result = dict(**priced, offers=explanations, customer=asdict(customer), store=asdict(store),
+                      staff_id=staff.id, channel=body.get('channel','walk_in'), method=body.get('method','upi'),
+                      manual_discount=body.get('manual_discount'), warnings=rx.warnings(), billing_date=on.isoformat())
+        result['quote_fingerprint'] = fingerprint(result)
+        return result
 
     @staticmethod
     def observed_number(orders, prefix, credit=False):
@@ -136,10 +138,13 @@ class POS:
                 snapshot = self.quote(body)
                 require(snapshot['totals']['total_paise'] == body['expected_total_paise'], 'price_changed',
                         'Re-quote and confirm the current total before charging')
+                if body.get('expected_quote_fingerprint'):
+                    require(snapshot['quote_fingerprint'] == body['expected_quote_fingerprint'], 'quote_changed',
+                            'Prescription, selection or pricing changed; review a fresh quote before charging')
                 store = snapshot['store']
                 counter = self.initial_counter(store['id'],store['prefix'])
                 op = self.repo.create(key,'checkout',body,
-                    dict(snapshot=snapshot, staff_id=body['staff_id'], store_code=store['code'],
+                    dict(snapshot=snapshot, request=body, staff_id=body['staff_id'], store_code=store['code'],
                          expires_at=self.checkout_expiry(),reason_code=(body.get('manual_discount') or {}).get('reason_code')),
                     scope=store['prefix'], prefix=store['prefix'], observed_max=counter)
             if op['state'] in ('completed','failed'):
@@ -189,7 +194,7 @@ class POS:
                 self.commerce.validate_refund(order['id'],refund)
                 prefix = store.prefix+'CN/'
                 op = self.repo.create(key,'refund',body,
-                    dict(refund=refund,order_id=order['id'],staff_id=body['staff_id'],store_code=store.code,
+                    dict(refund=refund,request=body,order_id=order['id'],staff_id=body['staff_id'],store_code=store.code,
                          charge_id=charge_id,reason_code=body['reason_code']),
                     scope=prefix,prefix=prefix,observed_max=self.initial_counter(store.id,prefix,credit=True))
             if op['state'] in ('completed','failed'):
@@ -226,6 +231,13 @@ class POS:
                     return self.repo.save(op,'refund_paid_action_required',error=exc.message)
                 return self.repo.save(op,'completed',shopify_refund=result,error=None)
             return op
+
+    def resume(self, key):
+        op = self.repo.get(key)
+        require(op is not None, 'not_found', 'Operation not found')
+        body = op['data'].get('request')
+        require(body is not None, 'legacy_operation', 'Original request is unavailable; investigate before retrying')
+        return self.checkout(key, body) if op['kind'] == 'checkout' else self.refund(key, body)
 
     def report(self, store_code, on: date):
         store = self.store(store_code)

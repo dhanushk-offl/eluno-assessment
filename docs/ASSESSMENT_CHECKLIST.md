@@ -2,7 +2,7 @@
 
 Checked on **29 October 2026** against the [candidate brief](../brief/CANDIDATE_BRIEF.md), [stakeholder thread](../brief/STAKEHOLDER_THREAD.md), source code, tests and a fresh isolated demo.
 
-**Result:** the seven Must workflows are implemented and verified locally. The complete assessment is **not yet submitted**: Git publication and clean-clone verification are complete, but no recorded Loom link or submission email is available here. The stakeholder thread also contains deliberately deferred work; it is not a list of features we can claim to have shipped.
+**Result:** the seven Must workflows are implemented and verified locally. The complete assessment is **not yet submitted**: The backend was published and clean-clone verified; the later tablet UI changes are local and have not yet been pushed. No recorded Loom link or submission email is available here. The stakeholder thread also contains deliberately deferred work; it is not a list of features we can claim to have shipped.
 
 Status meanings: **Done** = implementation/evidence exists; **Partial** = only part of the request exists; **Deferred** = explicitly outside this exercise's chosen scope; **Pending** = required submission step not verified/completed here.
 
@@ -31,14 +31,14 @@ Evidence: [STAKEHOLDER_REPLY.md](../STAKEHOLDER_REPLY.md).
 | Tax, discount and refund math tests | Done | [test_domain.py](../tests/test_domain.py), [test_workflows.py](../tests/test_workflows.py), [test_regressions.py](../tests/test_regressions.py). |
 | README explains run, implemented work, decisions and gaps | Done | [README.md](../README.md) and [design details](DECISIONS.md). |
 | Mock modifications explained | Done | Idempotency fix, reference lookup, capture expiry and pagination documented in [starter-kit README](../starter-kit/README.md). Seed data unchanged. |
-| HTTP API acceptable; screen not required | Done | FastAPI endpoints, Swagger `/docs`, ReDoc `/redoc`, contract `/openapi.json`; docs examples run end to end in [test_api_docs.py](../tests/test_api_docs.py). |
+| HTTP API acceptable; screen not required | Done | FastAPI endpoints and a SvelteKit tablet UI; Swagger `/docs`, ReDoc `/redoc`, contract `/openapi.json`; docs examples run end to end in [test_api_docs.py](../tests/test_api_docs.py). |
 
 ## 2. Must tier — seven required workflows
 
 - [x] **1. Customer and latest valid prescription.** Shopify lookup by phone; SMT prescriptions filtered by customer, test date and expiry. Missing/expired prescriptions block lens billing. Evidence: `POS.lookup`, `latest_valid`, future/expired-prescription tests.
 - [x] **2. Frame/lens cart and clinical validation.** Catalog exposes lens type/index/coating. Both eyes' sphere/cylinder and required ADD/ranges are checked; errors explain what staff must change. Inactive/incompatible frames and insufficient store stock are blocked. Evidence: `POS.quote`, `validate_lens`, boundary/ADD/stock tests. Prescription entry and a 5° axis selector are not implemented.
 - [x] **3. Offers by data rules.** Dates, tags, lens conditions, pair/cart scope, caps, stackability and priority are evaluated; the best valid combination is selected and explained. Manager overrides require explicit input, the configured staff permission and a reason. Evidence: [offers.py](../pos/offers.py), best-combination/two-pair/authorization tests.
-- [x] **4. Inclusive GST per line by HSN.** Effective-dated rates; discounts first; taxable value, CGST and SGST reconcile to integer paise. These are visible in the quote and persisted invoice snapshot returned through the API. Evidence: `split_tax`, `price_cart`, decimal-oracle/effective-rate/allocation tests. Printable HTML/PDF is an optional feature and is deferred.
+- [x] **4. Inclusive GST per line by HSN.** Effective-dated rates; discounts first; taxable value, CGST and SGST reconcile to integer paise. These are visible in the quote and persisted invoice snapshot returned through the API. Evidence: `split_tax`, `price_cart`, decimal-oracle/effective-rate/allocation tests. A demo receipt and PDF use the persisted sale snapshot; production-compliant invoices still require complete store and GST details.
 - [x] **5. Terminal charge, then Shopify order.** Shopify receives line items, taxes, discounts, successful sale transaction, lens prescription snapshot, billing-store inventory decrement and an independent invoice number in metadata. Evidence: `POS.checkout`, `ShopifyAdapter.order_payload`, end-to-end/lost-response/idempotency tests.
 - [x] **6. Full refund through Shopify.** Original discounted values and taxes are reversed; terminal payout and Shopify refund transaction are recorded, linked to the original sale. Credit note references the invoice; frame returns to the billing store and lens never restocks. Evidence: `full_refund`, `POS.refund`, adapter refund methods, stock/tax/repeated-refund tests. Scope: new app-created orders with one captured sale; synthetic historical terminal references cannot be paid back through this mock.
 - [x] **7. Shopify-backed day-end report.** Store/date bill count, pre-discount gross, taxable sales, tax, discounts, refunds and payment-method split. Includes refunds of older orders on their processing day, Asia/Kolkata boundaries and all order pages. Evidence: `POS.report`, midnight/older-refund/501-order tests and live demo.
@@ -51,7 +51,7 @@ Evidence: [STAKEHOLDER_REPLY.md](../STAKEHOLDER_REPLY.md).
 | Founder: all seven stores live by 15 Nov | Deferred production rollout | Store data is supported; no live-store deployment, pilot or operational sign-off. Reply proposes staged rollout and readiness gates. |
 | Founder: bill in under 10 seconds | Partial | Latest isolated checkout measured **0.031 seconds**. This is one local sample, not a load test or terminal/network SLA. Reply asks how the target is measured. |
 | Founder: offers from day one | Done within exercise policy | Configured offers run automatically; ambiguous combinations are documented for Retail/Finance approval. |
-| Founder: priority/campaign flags on billing screen | Partial | Cohort tags are returned in customer lookup. No billing screen or queue-tool integration is built; a screen is not scored. |
+| Founder: priority/campaign flags on billing screen | Partial | The local tablet sale screen displays priority/campaign tags. Live queue-tool flag integration is not built; a screen is not scored. |
 | Founder: no slow-system excuses | Partial | Transient retries, durable progress and explicit pending states exist. No outage-free guarantee or production observability. |
 | Retail: festive + second-pair + priority all stack | Decision documented | Supplied `stackable` flags are authoritative; exclusive offers compete alone. Unrestricted stacking is not implemented because it conflicts with the supplied rules. |
 | Retail: manager discount button up to 10%, no approval chain | Partial | API supports explicit manager discount requests with configured role/permission and reason; no button or production authentication. |
@@ -84,7 +84,7 @@ The brief says to pick justified Should work and at most one Stretch after Must.
 | Cash till, float, movements, counted close and variance | Deferred. |
 | Channel on every order **and** channel report by store | Partial: order metadata exists; channel aggregation is absent. |
 | Partial frame-only/lens-only refund | Deferred. |
-| Printable HTML/PDF invoice | Deferred. API invoice data exists. |
+| Printable HTML/PDF invoice | Demo receipt and downloadable PDF after completed checkout; production tax invoice requires complete store and GST details. |
 | Audit trail with actor, action, time and reason | Done at local operational level for checkout/refund state changes and document allocations. Not an authenticated/tamper-evident production audit. |
 | Plain-English offer authoring with human review | Not selected. |
 | Prescription entry assist with confidence/review | Not selected. |
@@ -94,7 +94,7 @@ The brief says to pick justified Should work and at most one Stretch after Must.
 
 - [x] Re-read candidate brief, stakeholder thread, starter instructions and stakeholder reply.
 - [x] Inspected domain, offer/configuration rules, workflow persistence, adapters and submission files.
-- [x] Test suite: **75 passed**, one non-failing Starlette test-client deprecation warning.
+- [x] Current local backend test suite: **81 passed**, one non-failing Starlette test-client deprecation warning. The later UI has passed Svelte checks/build and an API-proxy sale/refund smoke test.
 - [x] Seed validator: **OK**.
 - [x] Original `starter-kit/examples.sh` walkthrough: passed against an isolated mock with failures enabled.
 - [x] Documented launch command: passed using isolated ports/database and the installed environment.
@@ -110,11 +110,12 @@ Isolated verification processes were stopped and their temporary ledger removed.
 - [x] README, stakeholder reply, source code and tests exist.
 - [x] **Initialize a Git repository and configure the target remote.** Target: `https://github.com/dhanushk-offl/eluno-assessment`.
 - [x] **Commit and push the implementation.** Published on `main` at [dhanushk-offl/eluno-assessment](https://github.com/dhanushk-offl/eluno-assessment).
-- [x] **Verify a clean clone using the README command.** A fresh clone created its own virtual environment and passed startup, the full demo and all 75 tests; isolated port/mock overrides avoided existing local services.
+- [x] **Verify the previously published backend from a clean clone.** A fresh clone created its own virtual environment and passed startup, the full demo and all 75 tests; isolated port/mock overrides avoided existing local services.
+- [ ] **Commit and push the later tablet UI changes** when ready, then verify a fresh clone of that revision.
 - [ ] **Record and provide a Loom, no longer than eight minutes.** The local planning outline and all video assets are excluded from publication; no actual recording/link is verified here.
 - [ ] **In the recording, demonstrate all Must steps, explain 2–3 decisions, one decision to revisit, and where AI helped/misled.** Recorded delivery remains unverified.
 - [x] **Repository access for reviewers.** The target GitHub repository is public, so a private-repository invitation is not applicable.
 - [ ] **Reply to the assessment email with the Git and Loom links.** No submission has been sent by this implementation session.
 - [ ] **Confirm the actual 48-hour deadline or an approved extension.** The original email timestamp is not available; meeting the deadline cannot be verified from this workspace.
 
-The implementation can be demonstrated locally. Completing the submission still requires the recording, email and deadline confirmation above. Deferred stakeholder/optional work must remain described honestly rather than checked off as shipped.
+The implementation can be demonstrated locally. Completing the submission still requires publishing the later UI changes, the recording, email and deadline confirmation above. Deferred stakeholder/optional work must remain described honestly rather than checked off as shipped.

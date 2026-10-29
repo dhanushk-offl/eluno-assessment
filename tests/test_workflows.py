@@ -56,10 +56,30 @@ def test_lost_order_response_reconciles_without_duplicate(env,cart):
     assert len(real_charges(env))==1
 
 
-def test_lost_terminal_charge_response_reuses_reference(env,cart):
+def test_lost_terminal_charge_response_reuses_reference(env,cart,monkeypatch):
     env.transport.lost[('POST','/terminal/charges')]=1
-    op,_=checkout(env,cart)
+    op,body=checkout(env,cart)
+    assert op['state']=='charging' and len(real_charges(env))==1
+    def no_second_charge(*args):
+        pytest.fail('A captured charge must be reconciled before any retry')
+    monkeypatch.setattr(env.service.terminal,'charge',no_second_charge)
+    op=env.service.checkout(op['key'],body)
     assert op['state']=='completed' and len(real_charges(env))==1
+
+
+def test_terminal_503_reconciles_before_retrying_same_charge_key(env,cart,monkeypatch):
+    env.transport.reject[('POST','/terminal/charges')]=[503]
+    op,body=checkout(env,cart,'charge_503_recovery')
+    assert op['state']=='charging' and not real_charges(env)
+    calls=[]
+    lookup=env.service.terminal.find_charge
+    charge=env.service.terminal.charge
+    monkeypatch.setattr(env.service.terminal,'find_charge',lambda key: (calls.append(('lookup',key)), lookup(key))[1])
+    monkeypatch.setattr(env.service.terminal,'charge',lambda amount,method,key,expires: (calls.append(('charge',key)), charge(amount,method,key,expires))[1])
+    op=env.service.checkout(op['key'],body)
+    assert op['state']=='completed'
+    assert calls==[('lookup','charge_503_recovery'),('charge','charge_503_recovery')]
+    assert len(real_charges(env))==1
 
 
 def test_lost_terminal_refund_response_reconciles_without_repeat(env,cart):
@@ -89,7 +109,9 @@ def test_lost_shopify_refund_response_reconciles(env,cart):
 def test_429_and_terminal_503_before_commit_are_retried(env,cart):
     env.transport.reject[('POST','/terminal/charges')]=[503]
     env.transport.reject[('POST',API+'orders.json')]=[429]
-    assert checkout(env,cart)[0]['state']=='completed'
+    op,body=checkout(env,cart)
+    assert op['state']=='charging'
+    assert env.service.checkout(op['key'],body)['state']=='completed'
     assert len(real_charges(env))==1
 
 

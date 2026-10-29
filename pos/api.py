@@ -71,6 +71,7 @@ class Checkout(Cart):
     }]})
     operation_key: Key = Field(description='Unique sale reference. Reuse this key and identical input after a timeout; changed input returns 409.')
     expected_total_paise: Annotated[int, Field(strict=True,gt=0)] = Field(description='Use totals.total_paise from the current quote; the example amount is illustrative.')
+    expected_quote_fingerprint: Annotated[str, StringConstraints(pattern=r'^[a-f0-9]{64}$')] | None = Field(default=None, description='Optional quote fingerprint to confirm prescription and line details as well as the total.')
 
 
 class Refund(Input):
@@ -163,6 +164,7 @@ class QuoteResponse(BaseModel):
     manual_discount: dict[str, Any] | None
     warnings: list[str]
     billing_date: str
+    quote_fingerprint: str
 
 
 class OperationResponse(BaseModel):
@@ -236,6 +238,39 @@ def create_app(service=None):
     def stores():
         return [asdict(s) for s in service.commerce.stores()]
 
+    @app.get('/stores/{store_code}/details', tags=['Discovery'], summary='Get a store name and address', responses={**ERROR_RESPONSES, 200: {'model': dict[str, Any]}})
+    def store_details(store_code: str):
+        return service.commerce.store_details(store_code)
+
+    @app.get('/stores/{store_code}/staff', tags=['Discovery'], response_model=list[dict[str, Any]])
+    def store_staff(store_code: str):
+        service.store(store_code)
+        return [asdict(staff) for staff in service.smt.staff(store_code)]
+
+    @app.get('/stores/{store_code}/availability', tags=['Discovery'], response_model=dict[str, int])
+    def store_availability(store_code: str):
+        store = service.store(store_code)
+        return {str(v.id): service.commerce.available(v.stock_item_id, store.id)
+                for v in service.commerce.variants() if v.active and v.kind == 'frame' and v.stock_item_id}
+
+    @app.get('/orders', tags=['Refunds'], response_model=list[dict[str, Any]])
+    def orders(store_code: str):
+        store = service.store(store_code)
+        return list(reversed(service.commerce.orders(store.id)))
+
+    @app.get('/orders/{order_id}', tags=['Refunds'], response_model=dict[str, Any])
+    def get_order(order_id: int):
+        return service.commerce.order(order_id)
+
+    @app.get('/pending-operations', tags=['Operations'], response_model=list[OperationResponse])
+    def pending_operations(store_code: str):
+        service.store(store_code)
+        return service.repo.pending(store_code)
+
+    @app.post('/operations/{operation_key}/resume', tags=['Operations'], responses=WRITE_RESPONSES)
+    def resume_operation(operation_key: str):
+        return operation_response(service.resume(operation_key))
+
     @app.get('/catalog', tags=['Discovery'], summary='List active frames and lens configurations', responses={**ERROR_RESPONSES, 200: {'model': list[Variant]}}, description='Use variant IDs in the cart. Lens entries include type/index/coating and prescription limits; frame entries indicate prescription compatibility. Stock is checked at quotation and checkout.')
     def catalog():
         return [asdict(v) for v in service.commerce.variants() if v.active]
@@ -249,7 +284,9 @@ def create_app(service=None):
 
     @app.post('/checkouts', tags=['Billing'], summary='Charge and create a Shopify order', responses=WRITE_RESPONSES, description='Copy totals.total_paise from a fresh quote into expected_total_paise. Use a unique operation_key. Repeating identical input returns or resumes that sale. Expired/changed unpaid intents require a fresh confirmed request and new key. After an uncertain write, preserve the original key and follow the returned recovery state.')
     def checkout(body: Checkout):
-        data = body.model_dump(exclude={'operation_key'})
+        data = body.model_dump(exclude={'operation_key', 'expected_quote_fingerprint'})
+        if body.expected_quote_fingerprint is not None:
+            data['expected_quote_fingerprint'] = body.expected_quote_fingerprint
         return operation_response(service.checkout(body.operation_key,data))
 
     @app.post('/refunds', tags=['Refunds'], summary='Fully refund an app-created sale', responses=WRITE_RESPONSES, description='Use data.order.id from checkout. Reverses original discounted amounts and tax, records a credit note and Shopify refund linked to the sale. Frames return to the billing store; lenses never restock. Historical seed payments, partial refunds and multiple captured sales require a later workflow.')

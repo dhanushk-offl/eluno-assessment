@@ -1,0 +1,29 @@
+{
+  "name": "eluno-pos-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "svelte-kit sync && vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@sveltejs/adapter-node": "^5.3.0",
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "jspdf": "^4.2.1",
+    "phosphor-svelte": "^3.1.1",
+    "qrcode": "^1.5.4",
+    "svelte": "^5.0.0",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.6",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

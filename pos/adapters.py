@@ -73,7 +73,10 @@ class ShopifyAdapter:
 
     def customer(self, phone):
         rows = self.http.request('GET', API+'customers/search.json', params={'query': f'phone:{phone}'}).json()['customers']
-        require(len(rows) == 1, 'customer_not_found', 'Expected one Shopify customer for this phone; customer creation is outside v1')
+        if not rows:
+            raise RuleError('customer_not_found', 'No customer found for this phone number. Check the number or use an existing customer.')
+        if len(rows) > 1:
+            raise RuleError('customer_phone_ambiguous', 'Multiple customers have this phone number. Resolve the duplicate customer records before continuing.')
         c = rows[0]
         return Customer(c['id'], c['phone'], ' '.join([c.get('first_name',''), c.get('last_name','')]).strip(),
                         [s.strip() for s in c.get('tags','').split(',') if s.strip()])
@@ -82,6 +85,14 @@ class ShopifyAdapter:
         rows = self.http.request('GET', API+'locations.json').json()['locations']
         return [Store(r['id'], r['eluno']['store_code'], r['eluno']['invoice_prefix'])
                 for r in rows if r.get('active') and r.get('eluno',{}).get('kind') == 'store']
+
+    def store_details(self, code):
+        rows = self.http.request('GET', API+'locations.json').json()['locations']
+        match = next((r for r in rows if r.get('active') and r.get('eluno', {}).get('kind') == 'store'
+                      and r['eluno'].get('store_code') == code), None)
+        if not match:
+            raise RuleError('unknown_store', 'Choose an active retail store')
+        return {key: match.get(key) for key in ('name', 'address1', 'city', 'province_code', 'country_code', 'zip')}
 
     def variants(self):
         rows = self.pages(API+'products.json', {'limit': 250}, 'products')
@@ -212,7 +223,9 @@ class TerminalAdapter:
         payload = dict(amount_paise=amount_paise, method=method, order_ref=operation_key)
         if expires_at is not None:
             payload['expires_at'] = expires_at
-        return self.http.request('POST', '/terminal/charges', json=payload, idempotent=True).json()
+        # A lost response can follow a capture. The caller reconciles by
+        # order_ref before deciding whether to submit this key again.
+        return self.http.request('POST', '/terminal/charges', json=payload).json()
 
     def status(self, charge_id):
         return self.http.request('GET', '/terminal/charges/'+charge_id).json()

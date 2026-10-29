@@ -6,9 +6,15 @@ __pycache__/
 
 # Local presentation assets: excluded from the assessment repository.
 LOOM_OUTLINE.md
+loom_outline.md
 *.mp4
 *.mov
 *.webm
 *.mkv
 *.avi
 *.m4v
+node_modules/
+.svelte-kit/
+ui/build/
+ui/test-results/
+ui/playwright-report/

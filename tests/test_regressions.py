@@ -22,7 +22,7 @@ def charges(env):
 
 
 def pending_checkout(env, cart, key='review_pending_sale'):
-    env.transport.reject[('POST','/terminal/charges')]=[503]*env.http.attempts
+    env.transport.reject[('POST','/terminal/charges')]=[503]
     op, body = checkout(env,cart,key)
     assert op['state']=='charging' and not charges(env)
     return op,body
@@ -82,11 +82,13 @@ def test_existing_capture_is_recovered_after_expiry_without_recharge(env,cart,mo
     assert len(charges(env))==1
 
 
-def test_terminal_rejects_new_capture_when_http_retry_crosses_expiry(env,cart):
+def test_terminal_rejects_new_capture_when_recovery_crosses_expiry(env,cart):
     env.transport.reject[('POST','/terminal/charges')]=[503]
-    env.http.sleep=lambda _:setattr(env.service,'now',lambda:datetime(2026,10,26,12,16,tzinfo=IST))
-    op,_=checkout(env,cart)
-    assert op['state']=='failed' and 'checkout_expired' in op['data']['error']
+    op,body=checkout(env,cart)
+    assert op['state']=='charging'
+    env.service.now=lambda:datetime(2026,10,26,12,16,tzinfo=IST)
+    op=env.service.checkout(op['key'],body)
+    assert op['state']=='failed' and 'expired' in op['data']['error']
     assert not charges(env)
 
 
@@ -259,8 +261,10 @@ def test_operation_lists_use_one_connection_each(env,cart,monkeypatch):
 
 def test_lost_charge_response_crossing_deadline_returns_existing_capture(env,cart):
     env.transport.lost[('POST','/terminal/charges')]=1
-    env.http.sleep=lambda _:setattr(env.service,'now',lambda:datetime(2026,10,26,12,16,tzinfo=IST))
-    op,_=checkout(env,cart)
+    op,body=checkout(env,cart)
+    assert op['state']=='charging'
+    env.service.now=lambda:datetime(2026,10,26,12,16,tzinfo=IST)
+    op=env.service.checkout(op['key'],body)
     assert op['state']=='completed' and len(charges(env))==1
     assert charges(env)[0]['captured_at']=='2026-10-26T12:00:00+05:30'
 
