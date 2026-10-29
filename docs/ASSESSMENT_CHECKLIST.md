@@ -2,7 +2,7 @@
 
 Checked on **29 October 2026** against the [candidate brief](../brief/CANDIDATE_BRIEF.md), [stakeholder thread](../brief/STAKEHOLDER_THREAD.md), source code, tests and a fresh isolated demo.
 
-**Result:** the seven Must workflows are implemented and verified locally. The complete assessment is **not yet submitted**: the Git publication steps below are being completed, and no recorded Loom link or submission email is available here. The stakeholder thread also contains deliberately deferred work; it is not a list of features we can claim to have shipped.
+**Result:** the seven Must workflows are implemented and verified locally. The complete assessment is **not yet submitted**: Git publication and clean-clone verification are complete, but no recorded Loom link or submission email is available here. The stakeholder thread also contains deliberately deferred work; it is not a list of features we can claim to have shipped.
 
 Status meanings: **Done** = implementation/evidence exists; **Partial** = only part of the request exists; **Deferred** = explicitly outside this exercise's chosen scope; **Pending** = required submission step not verified/completed here.
 
@@ -23,7 +23,7 @@ Evidence: [STAKEHOLDER_REPLY.md](../STAKEHOLDER_REPLY.md).
 
 | Requirement | Status | Evidence / qualification |
 |---|---|---|
-| Locally runnable with one documented command | Done locally | `bash scripts/run.sh`; startup verified with isolated ports/database. First dependency installation needs network access. A clone-based smoke test follows publication. |
+| Locally runnable with one documented command | Done locally | `bash scripts/run.sh`; startup verified with isolated ports/database. First dependency installation needs network access. The published GitHub clone was also verified with a fresh virtual environment and isolated service ports. |
 | Core independent of Shopify types; explicit adapter | Done | Domain rules in [domain.py](../pos/domain.py), contracts in [ports.py](../pos/ports.py), wire conversion in [adapters.py](../pos/adapters.py). |
 | Tax rates and offers editable as data | Done | Seed JSON is loaded and strictly validated by [configuration.py](../pos/configuration.py); invalid changes block payment. New rule operators still require implementation. |
 | Integer paise inside; decimal strings at Shopify boundary | Done | Integer rounding/allocation guards in domain; `money`/`paise` in adapter; boundary and tax tests. |
@@ -100,20 +100,21 @@ The brief says to pick justified Should work and at most one Stretch after Must.
 - [x] Documented launch command: passed using isolated ports/database and the installed environment.
 - [x] Swagger, ReDoc and OpenAPI endpoints: successful HTTP responses.
 - [x] Live app demo: quote → charge/order → same-key replay → full refund → stock restoration → day-end; passed with failures enabled.
-- [x] Latest observed checkout: **0.031 seconds**, one local sample only.
+- [x] Latest observed checkout during the assessment audit: **0.031 seconds**, one local sample only.
+- [x] Published GitHub clone: fresh virtual environment, dependency installation, documented launch command, full demo and **75 passing tests**. Loom/video assets were absent from the clone.
 
 Isolated verification processes were stopped and their temporary ledger removed. Existing user services and ledger were not used. Machine-readable local run evidence is `.runtime/assessment-verification.json` (ignored runtime output, not a submission dependency).
 
-## 6. Submission still to finish
+## 6. Submission status
 
 - [x] README, stakeholder reply, source code and tests exist.
 - [x] **Initialize a Git repository and configure the target remote.** Target: `https://github.com/dhanushk-offl/eluno-assessment`.
-- [ ] **Commit and push the implementation.** Publication verification follows the initial push.
-- [ ] **Verify a clean clone using the README command.** Local startup passed; this final publication check has not happened.
+- [x] **Commit and push the implementation.** Published on `main` at [dhanushk-offl/eluno-assessment](https://github.com/dhanushk-offl/eluno-assessment).
+- [x] **Verify a clean clone using the README command.** A fresh clone created its own virtual environment and passed startup, the full demo and all 75 tests; isolated port/mock overrides avoided existing local services.
 - [ ] **Record and provide a Loom, no longer than eight minutes.** The local planning outline and all video assets are excluded from publication; no actual recording/link is verified here.
 - [ ] **In the recording, demonstrate all Must steps, explain 2–3 decisions, one decision to revisit, and where AI helped/misled.** Recorded delivery remains unverified.
-- [ ] **If the remote repository is private, grant access to the address from the assessment email.** Address and access are not available here.
+- [x] **Repository access for reviewers.** The target GitHub repository is public, so a private-repository invitation is not applicable.
 - [ ] **Reply to the assessment email with the Git and Loom links.** No submission has been sent by this implementation session.
 - [ ] **Confirm the actual 48-hour deadline or an approved extension.** The original email timestamp is not available; meeting the deadline cannot be verified from this workspace.
 
-The implementation can be demonstrated locally. Completing the submission still requires the repository, recording, access and email steps above. Deferred stakeholder/optional work must remain described honestly rather than checked off as shipped.
+The implementation can be demonstrated locally. Completing the submission still requires the recording, email and deadline confirmation above. Deferred stakeholder/optional work must remain described honestly rather than checked off as shipped.
