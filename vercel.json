@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "app": {
+      "root": ".",
+      "runtime": "container",
+      "entrypoint": "Dockerfile.vercel-api"
+    },
+    "ui": {
+      "root": "ui",
+      "framework": "sveltekit-1",
+      "installCommand": "bun install --frozen-lockfile",
+      "buildCommand": "bun run build",
+      "bindings": [
+        { "type": "service", "service": "app", "format": "url", "env": "POS_API_URL" }
+      ]
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": { "service": "ui" } }
+  ]
+}

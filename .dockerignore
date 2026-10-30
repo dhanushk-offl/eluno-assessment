@@ -6,6 +6,7 @@
 **/.pytest_cache
 **/node_modules
 ui/.svelte-kit
+**/.vercel
 ui/build
 ui/test-results
 ui/playwright-report

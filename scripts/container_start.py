@@ -45,12 +45,16 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     env = os.environ.copy()
-    public_port = int(env.get("PORT", "3000"))
-    api_port = int(env.get("API_INTERNAL_PORT", "8000"))
+    api_only = env.get("ELUNO_API_ONLY") == "1"
+    public_port = int(env.get("PORT", "80" if api_only else "3000"))
+    api_port = public_port if api_only else int(env.get("API_INTERNAL_PORT", "8000"))
     mock_port = int(env.get("MOCK_INTERNAL_PORT", "8787"))
-    if any(not 1 <= port <= 65535 for port in (public_port, api_port, mock_port)) or len({public_port, api_port, mock_port}) != 3:
+    ports = (public_port, mock_port) if api_only else (public_port, api_port, mock_port)
+    if any(not 1 <= port <= 65535 for port in ports) or len(set(ports)) != len(ports):
         raise ValueError("PORT, API_INTERNAL_PORT and MOCK_INTERNAL_PORT must be distinct valid ports")
-    env.update(PORT=str(public_port), HOST="0.0.0.0", POS_API_URL=f"http://127.0.0.1:{api_port}")
+    env.update(PORT=str(public_port), HOST="0.0.0.0")
+    if not api_only:
+        env["POS_API_URL"] = f"http://127.0.0.1:{api_port}"
     # The built-in mock loses its state on restart, so its default ledger must
     # reset with it. An explicitly configured POS_DB is the operator's choice.
     with tempfile.TemporaryDirectory(prefix="eluno-pos-") as runtime:
@@ -60,9 +64,10 @@ def main():
                 env["MOCK_URL"] = f"http://127.0.0.1:{mock_port}"
                 mock = start("mock", [sys.executable, "starter-kit/mock-apis/mock_server.py", "--host", "127.0.0.1", "--port", str(mock_port)], env)
                 wait_ready(f"{env['MOCK_URL']}/health", mock)
-            api = start("API", [sys.executable, "-m", "uvicorn", "pos.api:create_app", "--factory", "--host", "127.0.0.1", "--port", str(api_port), "--root-path", "/api"], env)
+            api = start("API", [sys.executable, "-m", "uvicorn", "pos.api:create_app", "--factory", "--host", "0.0.0.0" if api_only else "127.0.0.1", "--port", str(api_port), "--root-path", "/api"], env)
             wait_ready(f"http://127.0.0.1:{api_port}/health", api)
-            start("frontend", ["bun", "ui/build/index.js"], env)
+            if not api_only:
+                start("frontend", ["bun", "ui/build/index.js"], env)
             while not stopping:
                 for name, process in children:
                     if process.poll() is not None:
