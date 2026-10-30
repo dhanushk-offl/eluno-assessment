@@ -3,7 +3,7 @@ name: Keep Render demo warm
 on:
   schedule:
     # Render's free web services sleep after 15 minutes without requests.
-    - cron: '7,17,27,37,47,57 * * * *'
+    - cron: '*/11 * * * *'
   workflow_dispatch:
 
 permissions: {}
