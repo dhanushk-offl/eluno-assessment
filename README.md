@@ -43,19 +43,15 @@ bash scripts/docker-run.sh
 
 Open **http://localhost:3000**. Set `APP_PORT=8080` before the command to use another local port. The script builds the image and runs the UI, API and mock together; press Ctrl-C to stop them.
 
-For Railway, deploy this repository using its root `Dockerfile` and enable a public domain for the service. The container listens on Railway's `PORT` (or 3000 by default); the API and mock are internal. The API is available through the UI at `/api`, including `/api/docs` and `/api/openapi.json`. Railway can build directly from the Dockerfile; no separate frontend or backend service is needed.
+To run the same complete demo on Railway:
+
+1. Create a project from this GitHub repository and use the repository root as the service root. Railway detects the root `Dockerfile`; keep its default start command.
+2. In the service settings, set the healthcheck path to `/api/health`, keep **one replica**, and leave serverless sleeping off while using the demo.
+3. Generate a public domain in the service's Networking settings and open it. The container listens on Railway's `PORT`; no frontend or backend service needs to be configured separately. The UI, API and mock all run together, including checkout, refunds and the receipt PDF. Swagger is available at `/api/docs`.
+
+The sample customer and cart below work in Railway as they do locally. Simulated upstream failures are enabled in both environments; use the operation's status action to recover instead of starting another payment after a timeout.
 
 The container uses Bun to install, build and run the frontend. By default it starts the seeded mock and a temporary SQLite ledger; **both reset when the container restarts**. This is a demo without authentication: use synthetic data only and restrict access appropriately. Railway's filesystem is ephemeral unless a volume is configured. For an external compatible mock, set `MOCK_URL`; `POS_DB` can point to a writable SQLite path, such as a mounted volume. Keep the mock and ledger lifecycle aligned: persisting SQLite does not persist the built-in mock's in-memory state. `API_INTERNAL_PORT` and `MOCK_INTERNAL_PORT` can override the internal ports if needed and must differ from `PORT`.
-
-### Vercel services configuration
-
-The root `vercel.json` defines a public SvelteKit `ui` service and an internal `app` container. The UI's `/api/*` route forwards to the app through the `POS_API_URL` service binding; Vercel supplies that URL. The app container runs FastAPI and the seeded mock together. Use a current Vercel CLI, Bun and Docker to test service routing locally:
-
-```bash
-bunx vercel@latest dev --local
-```
-
-**This Vercel configuration is read-only:** lookup, catalog, quotes and reports are available, but checkout, refund and operation resumption return `demo_read_only`. Each instance has its own temporary ledger and mock state, so allowing money-moving operations would make recovery and invoice numbering unreliable. Enabling those operations requires shared durable state and coordination for both the ledger and mock, plus verified integration contracts. The separate local/Railway Docker setup retains its existing behavior. This configuration has not been deployed to Vercel.
 
 ### Local development
 

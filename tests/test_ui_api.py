@@ -3,21 +3,6 @@ from conftest import checkout
 from pos.adapters import API
 
 
-def test_read_only_deployment_blocks_money_moving_operations(env, cart, monkeypatch):
-    monkeypatch.setenv('ELUNO_READ_ONLY', '1')
-    quote = env.client.post('/quotes', json=cart)
-    assert quote.status_code == 200
-    result = env.client.post('/checkouts', json={**cart, 'operation_key': 'readonly_sale_001',
-                                                'expected_total_paise': quote.json()['totals']['total_paise']})
-    assert result.status_code == 422 and result.json()['error'] == 'demo_read_only'
-    result = env.client.post('/refunds', json={'operation_key': 'readonly_refund_001', 'order_id': 1,
-                                              'staff_id': 'S105', 'reason_code': 'RETURN'})
-    assert result.status_code == 422 and result.json()['error'] == 'demo_read_only'
-    result = env.client.post('/operations/readonly_sale_001/resume')
-    assert result.status_code == 422 and result.json()['error'] == 'demo_read_only'
-    assert not [item for item in env.mock.S['charges'].values() if isinstance(item, dict)]
-
-
 def test_customer_lookup_distinguishes_missing_and_duplicate_numbers(env, cart):
     missing = env.client.get('/customers/lookup', params={'phone': '+919999999999'})
     assert missing.status_code == 422

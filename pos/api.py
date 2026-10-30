@@ -217,10 +217,6 @@ def create_app(service=None):
     )
     app.state.pos = service
 
-    def require_writes_enabled():
-        if os.environ.get('ELUNO_READ_ONLY') == '1':
-            raise RuleError('demo_read_only', 'Payments and refunds are unavailable in this deployment until shared storage is configured.')
-
     @app.exception_handler(RuleError)
     async def rule_error(request, exc):
         return JSONResponse(status_code=exc.status,content={'error':exc.code,'message':exc.message})
@@ -273,7 +269,6 @@ def create_app(service=None):
 
     @app.post('/operations/{operation_key}/resume', tags=['Operations'], responses=WRITE_RESPONSES)
     def resume_operation(operation_key: str):
-        require_writes_enabled()
         return operation_response(service.resume(operation_key))
 
     @app.get('/catalog', tags=['Discovery'], summary='List active frames and lens configurations', responses={**ERROR_RESPONSES, 200: {'model': list[Variant]}}, description='Use variant IDs in the cart. Lens entries include type/index/coating and prescription limits; frame entries indicate prescription compatibility. Stock is checked at quotation and checkout.')
@@ -289,7 +284,6 @@ def create_app(service=None):
 
     @app.post('/checkouts', tags=['Billing'], summary='Charge and create a Shopify order', responses=WRITE_RESPONSES, description='Copy totals.total_paise from a fresh quote into expected_total_paise. Use a unique operation_key. Repeating identical input returns or resumes that sale. Expired/changed unpaid intents require a fresh confirmed request and new key. After an uncertain write, preserve the original key and follow the returned recovery state.')
     def checkout(body: Checkout):
-        require_writes_enabled()
         data = body.model_dump(exclude={'operation_key', 'expected_quote_fingerprint'})
         if body.expected_quote_fingerprint is not None:
             data['expected_quote_fingerprint'] = body.expected_quote_fingerprint
@@ -297,7 +291,6 @@ def create_app(service=None):
 
     @app.post('/refunds', tags=['Refunds'], summary='Fully refund an app-created sale', responses=WRITE_RESPONSES, description='Use data.order.id from checkout. Reverses original discounted amounts and tax, records a credit note and Shopify refund linked to the sale. Frames return to the billing store; lenses never restock. Historical seed payments, partial refunds and multiple captured sales require a later workflow.')
     def refund(body: Refund):
-        require_writes_enabled()
         return operation_response(service.refund(body.operation_key,body.model_dump(exclude={'operation_key'})))
 
     @app.get('/operations/{operation_key}', tags=['Operations'], summary='Inspect an operation without resuming it', responses={200: {'model': OperationResponse}, 404: {'model': ErrorResponse}}, description='Read-only status. Repeat the original checkout/refund POST with identical input to actively reconcile or resume. Action-required states need investigation; do not create another sale to retry a payment.')

@@ -15,7 +15,6 @@ loom_outline.md
 *.m4v
 node_modules/
 .svelte-kit/
-.vercel/
 ui/build/
 ui/test-results/
 ui/playwright-report/

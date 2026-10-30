@@ -2,12 +2,7 @@ import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
 const forward: RequestHandler = async ({ request, params, url }) => {
-  // Vercel injects POS_API_URL through the UI service's private binding.
-  // Local development keeps its existing direct API fallback.
-  const base = (env.POS_API_URL || (env.VERCEL ? '' : 'http://127.0.0.1:8000')).replace(/\/$/, '');
-  if (!base) {
-    return Response.json({ error: 'service_unavailable', message: 'The POS API service binding is not configured.' }, { status: 503 });
-  }
+  const base = (env.POS_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
   try {
     const response = await globalThis.fetch(`${base}/${params.path}${url.search}`, {
       method: request.method,
