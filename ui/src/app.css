@@ -134,3 +134,5 @@
 .home-page .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding-right:170px}
 .home-page .quick-card:last-child{grid-column:auto}
 @media(max-width:620px){.home-page .quick-grid{grid-template-columns:1fr;padding-right:0}.home-sale-float{display:none}}
+.phone-country{display:inline-flex;align-items:center;gap:6px;align-self:stretch;flex-shrink:0;padding-right:12px;border-right:1px solid #d8d6d0;color:#34332f;font-size:14px;font-weight:600;white-space:nowrap}
+.phone-country [role="img"]{font-size:20px;line-height:1}

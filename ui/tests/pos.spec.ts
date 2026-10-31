@@ -7,8 +7,11 @@ test('tablet sale, full refund and Shopify day-end', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Good to see you.' })).toBeVisible();
   await expect(page.locator('.store-switch strong')).toHaveText('HSR', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Start a new sale' }).click();
-  await page.getByLabel('Phone number').fill('+919000000005');
+  await expect(page.locator('#phone-country')).toContainText('+91');
+  await page.getByLabel('Phone number').fill('9000000005');
+  const lookup = page.waitForRequest(request => request.url().includes('/api/customers/lookup?') && request.method() === 'GET');
   await page.getByRole('button', { name: 'Find customer' }).click();
+  expect(new URL((await lookup).url()).searchParams.get('phone')).toBe('+919000000005');
   await expect(page.getByRole('heading', { name: 'Karthik Reddy' })).toBeVisible();
   await page.getByRole('button', { name: 'Continue to frame' }).click();
   await page.getByLabel('Search frames').fill('FR-0003');
